@@ -16,7 +16,9 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
 
-        //
+        // ADICIONE ESTA LINHA AQUI:
+        // Isso diz ao Laravel para confiar no tráfego que vem do Cloudflare
+        $middleware->trustProxies(at: '*'); 
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
