@@ -2,22 +2,72 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm, usePage, router, Link } from '@inertiajs/react';
 import { useState } from 'react';
 
+// --- SUB-COMPONENTE: Formulário de Ação do Admin ---
+const ProductAdminAction = ({ product }) => {
+    const [action, setAction] = useState(
+        product.status === 'exchange' ? 'exchange' : 
+        product.status === 'discard' ? 'discard' : 'price'
+    );
+    const [price, setPrice] = useState(product.price || '');
+
+    const submit = () => {
+        router.put(route('products.updatePrice', product.id), {
+            action,
+            price: action === 'price' ? price : null
+        }, { preserveScroll: true }); 
+    };
+
+    return (
+        <div className="flex flex-col gap-3">
+            <div className="flex gap-4 text-sm px-1">
+                <label className="flex items-center gap-1.5 cursor-pointer text-gray-600 hover:text-blue-600 transition">
+                    <input type="radio" checked={action === 'price'} onChange={() => setAction('price')} className="text-blue-600 focus:ring-blue-500 border-gray-300" /> 
+                    <span className="font-medium">Preço</span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer text-gray-600 hover:text-blue-600 transition">
+                    <input type="radio" checked={action === 'exchange'} onChange={() => setAction('exchange')} className="text-blue-600 focus:ring-blue-500 border-gray-300" /> 
+                    <span className="font-medium">Troca</span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer text-gray-600 hover:text-red-600 transition">
+                    <input type="radio" checked={action === 'discard'} onChange={() => setAction('discard')} className="text-red-600 focus:ring-red-500 border-gray-300" /> 
+                    <span className="font-medium">Descarte</span>
+                </label>
+            </div>
+            
+            <div className="flex gap-2">
+                {action === 'price' && (
+                    <input 
+                        type="number" 
+                        step="0.01" 
+                        value={price} 
+                        onChange={e => setPrice(e.target.value)} 
+                        placeholder="R$ 0,00" 
+                        className="w-full border-gray-200 rounded-lg text-sm focus:ring-blue-500 transition shadow-sm" 
+                    />
+                )}
+                <button onClick={submit} className={`text-white px-4 py-2 rounded-lg text-sm font-bold transition shadow-sm w-full ${action === 'discard' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                    Salvar
+                </button>
+            </div>
+        </div>
+    );
+};
+
+
 export default function Dashboard() {
-    const { auth, products } = usePage().props;
+    const { auth, products, filters = {} } = usePage().props;
     const user = auth.user;
 
-    // Estados para os Modais
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState(null);
 
-    // Formulário de Criação
+    // Formulários com a nova propriedade 'category'
     const createForm = useForm({
-        name: '', description: '', image: null,
+        name: '', category: '', description: '', image: null,
     });
 
-    // Formulário de Edição
     const editForm = useForm({
-        name: '', description: '', image: null,
+        name: '', category: '', description: '', image: null,
     });
 
     const submitCreate = (e) => {
@@ -47,9 +97,18 @@ export default function Dashboard() {
         }
     };
 
-    const updatePrice = (id) => {
-        const priceValue = document.getElementById(`price-${id}`).value;
-        if (priceValue) router.put(route('products.updatePrice', id), { price: priceValue });
+    // Função para aplicar os filtros
+    const applyFilter = (key, value) => {
+        const newFilters = { ...filters, [key]: value };
+        if (!value) delete newFilters[key]; // Remove da URL se for "Todos"
+        
+        router.get(window.location.pathname, newFilters, { preserveState: true, preserveScroll: true });
+    };
+
+    const formatCategory = (cat) => {
+        if (cat === 'bazar') return 'Bazar';
+        if (cat === 'perfumaria') return 'Perfumaria';
+        return 'Outros';
     };
 
     return (
@@ -58,8 +117,7 @@ export default function Dashboard() {
 
             <div className="py-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 
-                {/* Cabeçalho com Botão de Adicionar (Apenas funcionários) */}
-                <div className="flex justify-between items-center mb-8">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                     <h3 className="text-lg font-medium text-gray-600">Catálogo de Itens</h3>
                     {user.role === 'employee' && (
                         <button 
@@ -72,61 +130,128 @@ export default function Dashboard() {
                     )}
                 </div>
 
-                {/* Grid de Produtos Moderno */}
+                {/* --- BARRA DE FILTROS --- */}
+                <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-8 flex flex-col sm:flex-row gap-4">
+                    <div className="flex-1">
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Filtrar por Situação</label>
+                        <select 
+                            value={filters.status || ''} 
+                            onChange={(e) => applyFilter('status', e.target.value)}
+                            className="w-full border-gray-200 rounded-xl focus:ring-blue-500 text-sm"
+                        >
+                            <option value="">Todas as Situações</option>
+                            <option value="pending">⏳ Pendentes de Avaliação</option>
+                            <option value="priced">✅ À Venda (Precificados)</option>
+                            <option value="exchange">🔄 Para Troca</option>
+                            <option value="discard">🗑️ Para Descarte</option>
+                        </select>
+                    </div>
+                    <div className="flex-1">
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Filtrar por Categoria</label>
+                        <select 
+                            value={filters.category || ''} 
+                            onChange={(e) => applyFilter('category', e.target.value)}
+                            className="w-full border-gray-200 rounded-xl focus:ring-blue-500 text-sm"
+                        >
+                            <option value="">Todas as Categorias</option>
+                            <option value="bazar">Bazar</option>
+                            <option value="perfumaria">Perfumaria</option>
+                            <option value="outros">Outros</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {products.data.length === 0 ? (
                         <div className="col-span-full text-center py-20 bg-white rounded-xl border-2 border-dashed border-gray-200">
-                            <p className="text-gray-400 text-lg">Nenhum item registrado no momento.</p>
+                            <p className="text-gray-400 text-lg">Nenhum item encontrado com esses filtros.</p>
+                            <button onClick={() => router.get(window.location.pathname)} className="mt-4 text-blue-600 font-bold hover:underline">Limpar Filtros</button>
                         </div>
                     ) : (
                         products.data.map((product) => (
-                            <div key={product.id} className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl border border-gray-100 transition-all duration-300 group">
-                                {/* Imagem com Badge de Status */}
-                                <div className="relative">
+                            <div key={product.id} className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl border border-gray-100 transition-all duration-300 group flex flex-col">
+                                <div className="relative shrink-0">
                                     <img 
                                         src={`/storage/${product.image_path}`} 
                                         alt={product.name} 
                                         className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-500" 
                                     />
+                                    {/* BADGE ESQUERDA - STATUS */}
                                     <div className="absolute top-3 left-3 flex gap-2">
-                                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase shadow-sm ${
-                                            product.status === 'priced' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase shadow-sm backdrop-blur-md ${
+                                            product.status === 'priced' ? 'bg-green-100/90 text-green-700' : 
+                                            product.status === 'exchange' ? 'bg-blue-100/90 text-blue-700' :
+                                            product.status === 'discard' ? 'bg-red-100/90 text-red-700' :
+                                            'bg-yellow-100/90 text-yellow-700'
                                         }`}>
-                                            {product.status === 'priced' ? 'Precificado' : 'Pendente'}
+                                            {product.status === 'priced' && 'Precificado'}
+                                            {product.status === 'exchange' && 'Troca'}
+                                            {product.status === 'discard' && 'Descarte'}
+                                            {product.status === 'pending' && 'Pendente'}
+                                        </span>
+                                    </div>
+                                    
+                                    {/* BADGE DIREITA - CATEGORIA */}
+                                    <div className="absolute bottom-3 right-3 flex gap-2">
+                                        <span className="bg-black/60 text-white px-3 py-1 rounded-lg text-xs font-semibold backdrop-blur-md shadow-sm">
+                                            {formatCategory(product.category)}
                                         </span>
                                     </div>
 
-                                    {/* Ações Flutuantes (Admin ou Dono) */}
                                     {(user.role === 'admin' || user.id === product.user_id) && (
                                         <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => { setEditingProduct(product); editForm.setData({ name: product.name, description: product.description, image: null }); }} className="bg-white/90 p-2 rounded-full text-yellow-600 hover:bg-yellow-500 hover:text-white transition shadow-lg">
+                                            <button onClick={() => { 
+                                                setEditingProduct(product); 
+                                                editForm.setData({ name: product.name, category: product.category, description: product.description, image: null }); 
+                                            }} className="bg-white/90 p-2 rounded-full text-yellow-600 hover:bg-yellow-500 hover:text-white transition shadow-lg backdrop-blur-sm">
                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                             </button>
-                                            <button onClick={() => deleteProduct(product.id)} className="bg-white/90 p-2 rounded-full text-red-600 hover:bg-red-500 hover:text-white transition shadow-lg">
+                                            <button onClick={() => deleteProduct(product.id)} className="bg-white/90 p-2 rounded-full text-red-600 hover:bg-red-500 hover:text-white transition shadow-lg backdrop-blur-sm">
                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                             </button>
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Conteúdo do Card */}
-                                <div className="p-5">
+                                <div className="p-5 flex flex-col flex-grow">
                                     <h4 className="font-bold text-gray-800 text-lg mb-1 truncate">{product.name}</h4>
                                     <p className="text-gray-500 text-sm h-10 line-clamp-2 mb-4 leading-relaxed">{product.description || 'Sem descrição.'}</p>
                                     
-                                    <div className="pt-4 border-t border-gray-50">
+                                    {product.status !== 'pending' && (
+                                        <div className={`mb-4 p-3 rounded-xl border text-sm ${
+                                            product.status === 'priced' ? 'bg-green-50 border-green-100' :
+                                            product.status === 'exchange' ? 'bg-blue-50 border-blue-100' :
+                                            'bg-red-50 border-red-100'
+                                        }`}>
+                                            <p className={`font-bold ${
+                                                product.status === 'priced' ? 'text-green-700' :
+                                                product.status === 'exchange' ? 'text-blue-700' :
+                                                'text-red-700'
+                                            }`}>
+                                                {product.status === 'priced' && `✅ Preço: R$ ${product.price}`}
+                                                {product.status === 'exchange' && '🔄 Para Troca'}
+                                                {product.status === 'discard' && '🗑️ Descarte'}
+                                            </p>
+                                            {product.priced_by && (
+                                                <p className="text-gray-500 text-xs mt-1">
+                                                    {product.status === 'priced' ? 'Precificado' : product.status === 'exchange' ? 'Marcado para troca' : 'Descartado'} por <span className="font-semibold">{product.priced_by.name}</span>
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    <div className="pt-4 mt-auto border-t border-gray-50">
                                         {user.role === 'admin' ? (
-                                            <div className="flex gap-2">
-                                                <input type="number" step="0.01" id={`price-${product.id}`} defaultValue={product.price} className="w-full border-gray-200 rounded-lg text-sm focus:ring-blue-500" placeholder="R$ 0,00" />
-                                                <button onClick={() => updatePrice(product.id)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition">Definir</button>
-                                            </div>
+                                            <ProductAdminAction product={product} />
                                         ) : (
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-xs text-gray-400 font-medium">Preço sugerido:</span>
-                                                <span className={`text-xl font-black ${product.price ? 'text-green-600' : 'text-gray-300 italic text-sm'}`}>
-                                                    {product.price ? `R$ ${product.price}` : 'Aguardando...'}
-                                                </span>
-                                            </div>
+                                            product.status === 'pending' && (
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-xs text-gray-400 font-medium">Situação:</span>
+                                                    <span className="text-gray-400 italic text-sm font-medium">
+                                                        Aguardando avaliação...
+                                                    </span>
+                                                </div>
+                                            )
                                         )}
                                     </div>
                                 </div>
@@ -135,44 +260,26 @@ export default function Dashboard() {
                     )}
                 </div>
 
-                {/* Paginação Estilizada */}
                 <div className="mt-12 flex flex-col items-center">
                     <span className="text-sm text-gray-500 mb-4 text-center">
                         Mostrando <b>{products.from || 0}</b> até <b>{products.to || 0}</b> de <b>{products.total}</b> produtos
                     </span>
                     <div className="inline-flex shadow-sm rounded-xl overflow-hidden">
                         {products.links.map((link, index) => {
-                            // Se não houver URL (link.url é null), renderizamos um <span> em vez de um <Link>
                             if (!link.url) {
                                 return (
-                                    <span
-                                        key={index}
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
-                                        className="px-4 py-2 text-sm font-medium border bg-gray-50 text-gray-400 cursor-not-allowed"
-                                    />
+                                    <span key={index} dangerouslySetInnerHTML={{ __html: link.label }} className="px-4 py-2 text-sm font-medium border bg-gray-50 text-gray-400 cursor-not-allowed" />
                                 );
                             }
-
-                            // Se houver URL, usamos o componente Link normalmente
                             return (
-                                <Link
-                                    key={index}
-                                    href={link.url}
-                                    dangerouslySetInnerHTML={{ __html: link.label }}
-                                    className={`px-4 py-2 text-sm font-medium border transition-colors ${
-                                        link.active 
-                                        ? 'bg-blue-600 text-white border-blue-600 z-10' 
-                                        : 'bg-white text-gray-700 hover:bg-gray-100'
-                                    }`}
-                                    preserveScroll
-                                />
+                                <Link key={index} href={link.url} dangerouslySetInnerHTML={{ __html: link.label }} className={`px-4 py-2 text-sm font-medium border transition-colors ${link.active ? 'bg-blue-600 text-white border-blue-600 z-10' : 'bg-white text-gray-700 hover:bg-gray-100'}`} preserveScroll />
                             );
                         })}
                     </div>
                 </div>
             </div>
 
-            {/* --- MODAL DE CRIAÇÃO --- */}
+            {/* MODAL DE CRIAÇÃO */}
             {isCreateModalOpen && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-blue-900/40 backdrop-blur-sm">
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all">
@@ -196,11 +303,27 @@ export default function Dashboard() {
                                         Tirar Foto ou Abrir Galeria
                                     </div>
                                 )}
+                                {createForm.errors.image && <p className="text-red-500 text-xs mt-1">{createForm.errors.image}</p>}
                             </div>
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Nome do Produto</label>
-                                <input type="text" value={createForm.data.name} onChange={(e) => createForm.setData('name', e.target.value)} className="w-full border-gray-200 rounded-xl focus:ring-blue-500" placeholder="Ex: Cadeira Quebrada" required />
+                            
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Nome do Produto</label>
+                                    <input type="text" value={createForm.data.name} onChange={(e) => createForm.setData('name', e.target.value)} className="w-full border-gray-200 rounded-xl focus:ring-blue-500" placeholder="Ex: Cadeira Quebrada" required />
+                                    {createForm.errors.name && <p className="text-red-500 text-xs mt-1">{createForm.errors.name}</p>}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Categoria</label>
+                                    <select value={createForm.data.category} onChange={(e) => createForm.setData('category', e.target.value)} className="w-full border-gray-200 rounded-xl focus:ring-blue-500" required>
+                                        <option value="">Selecione...</option>
+                                        <option value="bazar">Bazar</option>
+                                        <option value="perfumaria">Perfumaria</option>
+                                        <option value="outros">Outros</option>
+                                    </select>
+                                    {createForm.errors.category && <p className="text-red-500 text-xs mt-1">{createForm.errors.category}</p>}
+                                </div>
                             </div>
+
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Descrição do Dano</label>
                                 <textarea value={createForm.data.description} onChange={(e) => createForm.setData('description', e.target.value)} className="w-full border-gray-200 rounded-xl focus:ring-blue-500" rows="3" placeholder="Detalhes do problema..." />
@@ -213,7 +336,7 @@ export default function Dashboard() {
                 </div>
             )}
 
-            {/* --- MODAL DE EDIÇÃO --- */}
+            {/* MODAL DE EDIÇÃO */}
             {editingProduct && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden">
@@ -228,17 +351,29 @@ export default function Dashboard() {
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Substituir Foto (Opcional)</label>
                                 <input type="file" accept="image/*" onChange={(e) => editForm.setData('image', e.target.files[0])} className="w-full text-sm text-gray-500 border rounded-xl p-2" />
                             </div>
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Nome</label>
-                                <input type="text" value={editForm.data.name} onChange={(e) => editForm.setData('name', e.target.value)} className="w-full border-gray-200 rounded-xl focus:ring-blue-500" required />
+                            
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Nome</label>
+                                    <input type="text" value={editForm.data.name} onChange={(e) => editForm.setData('name', e.target.value)} className="w-full border-gray-200 rounded-xl focus:ring-blue-500" required />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Categoria</label>
+                                    <select value={editForm.data.category} onChange={(e) => editForm.setData('category', e.target.value)} className="w-full border-gray-200 rounded-xl focus:ring-blue-500" required>
+                                        <option value="bazar">Bazar</option>
+                                        <option value="perfumaria">Perfumaria</option>
+                                        <option value="outros">Outros</option>
+                                    </select>
+                                </div>
                             </div>
+
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Descrição</label>
                                 <textarea value={editForm.data.description} onChange={(e) => editForm.setData('description', e.target.value)} className="w-full border-gray-200 rounded-xl focus:ring-blue-500" rows="3" />
                             </div>
                             <div className="flex gap-3">
                                 <button type="button" onClick={() => setEditingProduct(null)} className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition">Cancelar</button>
-                                <button type="submit" disabled={editForm.processing} className="flex-2 bg-yellow-500 text-white px-8 py-3 rounded-xl font-bold hover:bg-yellow-600 shadow-lg transition active:scale-95 disabled:opacity-50">
+                                <button type="submit" disabled={editForm.processing} className="flex-1 bg-yellow-500 text-white px-8 py-3 rounded-xl font-bold hover:bg-yellow-600 shadow-lg transition active:scale-95 disabled:opacity-50">
                                     {editForm.processing ? 'Atualizando...' : 'Salvar'}
                                 </button>
                             </div>

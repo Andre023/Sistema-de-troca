@@ -9,19 +9,24 @@ class Product extends Model
 {
     use HasFactory;
 
-    // A nossa "Lista VIP" liberando as colunas para gravação
     protected $fillable = [
         'user_id',
         'name',
+        'category', // Adicionado aqui
         'description',
         'image_path',
         'price',
         'status',
+        'priced_by',
     ];
 
-    // Aqui dizemos que o produto pertence a um usuário
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function pricedBy()
+    {
+        return $this->belongsTo(User::class, 'priced_by');
     }
 }

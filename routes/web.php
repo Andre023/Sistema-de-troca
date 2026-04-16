@@ -27,6 +27,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/controle-troca/fornecedores/{supplier}/caixas', [ExchangeControlController::class, 'storeBox'])->name('exchange-control.boxes.store');
     Route::delete('/controle-troca/caixas/{supplierBox}', [ExchangeControlController::class, 'destroyBox'])->name('exchange-control.boxes.destroy');
 
+    Route::post('/exchange-control/upload-excel', [App\Http\Controllers\ExchangeControlController::class, 'uploadExcel'])->name('exchange-control.upload-excel');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
