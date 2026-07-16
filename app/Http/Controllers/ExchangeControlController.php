@@ -66,15 +66,42 @@ class ExchangeControlController extends Controller
         return collect(preg_split('/[\r\n,;]+/', $rawBoxes))->map(fn ($box) => trim((string) $box))->filter()->unique()->values()->all();
     }
 
-    public function index(Request $request)
+public function index(Request $request)
     {
         $perPage = max(5, min((int) $request->query('per_page', 12), 50));
-        $suppliers = Supplier::with(['boxes' => function ($query) {
-            $query->orderBy('number');
-        }])->orderBy('name')->paginate($perPage)->withQueryString();
+        
+        // Pega parâmetros de ordenação
+        $sort = $request->query('sort', 'name');
+        $direction = $request->query('direction', 'asc');
+        
+        // Pega parâmetro de filtro vindo da busca
+        $supplierId = $request->query('supplier_id');
+
+        $query = Supplier::with(['boxes' => function ($q) {
+            $q->orderBy('number');
+        }])->withCount('boxes');
+
+        // Se clicou na busca, filtra só aquele fornecedor
+        if ($supplierId) {
+            $query->where('id', $supplierId);
+        }
+
+        // Aplica a ordenação
+        if ($sort === 'boxes_count') {
+            $query->orderBy('boxes_count', $direction);
+        } else {
+            $query->orderBy('name', $direction);
+        }
+
+        $suppliers = $query->paginate($perPage)->withQueryString();
 
         return Inertia::render('ExchangeControl', [
             'suppliers' => $suppliers,
+            'filters' => [
+                'sort' => $sort,
+                'direction' => $direction,
+                'supplier_id' => $supplierId, // Envia para o front saber que está filtrado
+            ]
         ]);
     }
 
@@ -196,10 +223,36 @@ class ExchangeControlController extends Controller
         return redirect()->back();
     }
     public function destroySupplier(Supplier $supplier) { $supplier->delete(); return redirect()->back(); }
-    public function storeBox(Request $request, Supplier $supplier) { /* Manteve-se igual */
-        $validated = $request->validate(['number' => ['required', 'string', 'max:100', Rule::unique('supplier_boxes', 'number')->where(function ($query) use ($supplier) { return $query->where('supplier_id', $supplier->id); })]]);
+    public function storeBox(Request $request, Supplier $supplier) { 
+        $rules = [
+            'number' => ['required', 'string', 'max:100', Rule::unique('supplier_boxes', 'number')->where(function ($query) use ($supplier) { return $query->where('supplier_id', $supplier->id); })]
+        ];
+
+        if ($request->user() && $request->user()->role === 'admin') {
+            $rules['observation'] = 'nullable|string|max:1000';
+        }
+
+        $validated = $request->validate($rules);
         $supplier->boxes()->create($validated);
         return redirect()->back();
     }
     public function destroyBox(SupplierBox $supplierBox) { $supplierBox->delete(); return redirect()->back(); }
+    public function updateBox(Request $request, SupplierBox $supplierBox) {
+        if ($request->user() && $request->user()->role === 'admin') {
+            $validated = $request->validate([
+                'observation' => 'nullable|string|max:1000',
+            ]);
+            $supplierBox->update($validated);
+        }
+        return redirect()->back();
+    }
+    public function updateSupplierObservation(Request $request, Supplier $supplier) {
+        if ($request->user() && $request->user()->role === 'admin') {
+            $validated = $request->validate([
+                'observation' => 'nullable|string|max:1000',
+            ]);
+            $supplier->update($validated);
+        }
+        return redirect()->back();
+    }
 }

@@ -70,8 +70,27 @@ export default function Dashboard() {
         name: '', category: '', description: '', image: null,
     });
 
+    const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB (mesmo limite do backend)
+
+    const handleImageSelect = (file, form) => {
+        if (!file) {
+            form.setData('image', null);
+            return;
+        }
+        if (file.size > MAX_IMAGE_BYTES) {
+            alert('A imagem é muito grande. O máximo permitido é 10 MB.');
+            form.setData('image', null);
+            return;
+        }
+        form.setData('image', file);
+    };
+
     const submitCreate = (e) => {
         e.preventDefault();
+        if (!createForm.data.image) {
+            alert('Selecione uma foto do produto.');
+            return;
+        }
         createForm.post(route('products.store'), {
             forceFormData: true,
             preserveScroll: true,
@@ -291,7 +310,7 @@ export default function Dashboard() {
                         </div>
                         <form onSubmit={submitCreate} className="p-6 space-y-5">
                             <div className="border-2 border-dashed border-gray-200 rounded-2xl p-4 text-center hover:bg-gray-50 transition cursor-pointer relative">
-                                <input type="file" accept="image/*" capture="environment" onChange={(e) => createForm.setData('image', e.target.files[0])} className="absolute inset-0 opacity-0 cursor-pointer" />
+                                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" capture="environment" onChange={(e) => handleImageSelect(e.target.files[0], createForm)} className="absolute inset-0 opacity-0 cursor-pointer" />
                                 {createForm.data.image ? (
                                     <p className="text-green-600 font-bold flex items-center justify-center gap-2 italic">
                                         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" /></svg>
@@ -349,7 +368,7 @@ export default function Dashboard() {
                         <form onSubmit={submitEdit} className="p-6 space-y-5">
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Substituir Foto (Opcional)</label>
-                                <input type="file" accept="image/*" onChange={(e) => editForm.setData('image', e.target.files[0])} className="w-full text-sm text-gray-500 border rounded-xl p-2" />
+                                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e) => handleImageSelect(e.target.files[0], editForm)} className="w-full text-sm text-gray-500 border rounded-xl p-2" />
                             </div>
                             
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

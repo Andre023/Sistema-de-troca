@@ -12,6 +12,7 @@ class SupplierBox extends Model
     protected $fillable = [
         'supplier_id',
         'number',
+        'observation',
     ];
 
     public function supplier()

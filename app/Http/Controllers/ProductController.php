@@ -37,8 +37,14 @@ class ProductController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'category' => 'required|in:bazar,perfumaria,outros', // Validação da categoria
-            'image' => 'required|image|max:10240', 
+            'image' => 'required|image|mimes:jpeg,jpg,png,webp,gif|max:10240',
             'description' => 'nullable|string'
+        ], [
+            'image.required' => 'A foto do produto é obrigatória.',
+            'image.image' => 'O arquivo deve ser uma imagem (JPG, PNG ou WebP).',
+            'image.mimes' => 'Formato não suportado. Use JPG, PNG ou WebP.',
+            'image.max' => 'A imagem não pode passar de 10 MB.',
+            'image.uploaded' => 'Falha no envio da imagem. Tente uma foto menor ou reinicie o servidor com serve.ps1.',
         ]);
 
         $imagePath = null;
@@ -97,8 +103,13 @@ class ProductController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'category' => 'required|in:bazar,perfumaria,outros', // Validação da edição
-            'image' => 'nullable|image|max:10240', 
+            'image' => 'nullable|image|mimes:jpeg,jpg,png,webp,gif|max:10240',
             'description' => 'nullable|string'
+        ], [
+            'image.image' => 'O arquivo deve ser uma imagem (JPG, PNG ou WebP).',
+            'image.mimes' => 'Formato não suportado. Use JPG, PNG ou WebP.',
+            'image.max' => 'A imagem não pode passar de 10 MB.',
+            'image.uploaded' => 'Falha no envio da imagem. Tente uma foto menor ou reinicie o servidor com serve.ps1.',
         ]);
 
         $data = [
