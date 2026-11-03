@@ -138,7 +138,7 @@ export default function Dashboard() {
                 
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                     <h3 className="text-lg font-medium text-gray-600">Catálogo de Itens</h3>
-                    {user.role === 'employee' && (
+                    {(user.role === 'employee' || user.role === 'encarregado') && (
                         <button 
                             onClick={() => setIsCreateModalOpen(true)}
                             className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full shadow-lg flex items-center gap-2 transition-all transform hover:scale-105 active:scale-95"

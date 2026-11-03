@@ -228,23 +228,63 @@ public function index(Request $request)
             'number' => ['required', 'string', 'max:100', Rule::unique('supplier_boxes', 'number')->where(function ($query) use ($supplier) { return $query->where('supplier_id', $supplier->id); })]
         ];
 
-        if ($request->user() && $request->user()->role === 'admin') {
+        if ($request->user() && $request->user()->canEditBoxObservation()) {
             $rules['observation'] = 'nullable|string|max:1000';
         }
 
         $validated = $request->validate($rules);
-        $supplier->boxes()->create($validated);
+        $box = $supplier->boxes()->create($validated);
+
+        if (filled($box->observation)) {
+            $this->recordBoxObservationChange($request, $box, null, $box->observation);
+        }
+
         return redirect()->back();
     }
     public function destroyBox(SupplierBox $supplierBox) { $supplierBox->delete(); return redirect()->back(); }
     public function updateBox(Request $request, SupplierBox $supplierBox) {
-        if ($request->user() && $request->user()->role === 'admin') {
+        if ($request->user() && $request->user()->canEditBoxObservation()) {
             $validated = $request->validate([
                 'observation' => 'nullable|string|max:1000',
             ]);
-            $supplierBox->update($validated);
+
+            $old = $supplierBox->observation;
+            $new = $validated['observation'] ?? null;
+
+            // Só grava (e registra no histórico) se a observação realmente mudou
+            if ((string) $old !== (string) $new) {
+                $supplierBox->update(['observation' => $new]);
+                $this->recordBoxObservationChange($request, $supplierBox, $old, $new);
+            }
         }
         return redirect()->back();
+    }
+
+    public function boxObservationHistory(SupplierBox $supplierBox)
+    {
+        $history = $supplierBox->observationHistories()
+            ->with('user:id,name')
+            ->latest('id')
+            ->get()
+            ->map(fn ($item) => [
+                'id' => $item->id,
+                'user_name' => $item->user?->name ?? $item->user_name ?? 'Usuário removido',
+                'old_observation' => $item->old_observation,
+                'new_observation' => $item->new_observation,
+                'created_at' => $item->created_at?->timezone('America/Sao_Paulo')->format('d/m/Y H:i'),
+            ]);
+
+        return response()->json(['history' => $history]);
+    }
+
+    private function recordBoxObservationChange(Request $request, SupplierBox $box, ?string $old, ?string $new): void
+    {
+        $box->observationHistories()->create([
+            'user_id' => $request->user()?->id,
+            'user_name' => $request->user()?->name,
+            'old_observation' => $old,
+            'new_observation' => $new,
+        ]);
     }
     public function updateSupplierObservation(Request $request, Supplier $supplier) {
         if ($request->user() && $request->user()->role === 'admin') {

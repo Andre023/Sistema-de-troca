@@ -31,6 +31,12 @@ class User extends Authenticatable
         return $this->hasMany(Product::class);
     }
 
+    // Admin e encarregado podem editar as observações das caixas
+    public function canEditBoxObservation(): bool
+    {
+        return in_array($this->role, ['admin', 'encarregado'], true);
+    }
+
     /**
      * The attributes that should be hidden for serialization.
      *

@@ -8,7 +8,32 @@ export default function ExchangeControl() {
     const suppliers = suppliersPagination.data ?? [];
 
     const isAdmin = auth?.user?.role === 'admin';
+    // Encarregado tem as mesmas telas do funcionário, mas pode editar as observações das caixas
+    const canEditBoxObservation = isAdmin || auth?.user?.role === 'encarregado';
     const [newBoxObservation, setNewBoxObservation] = useState('');
+
+    // Histórico de alterações das observações das caixas
+    const [historyBoxId, setHistoryBoxId] = useState(null);
+    const [historyItems, setHistoryItems] = useState([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
+
+    const loadBoxHistory = (boxId) => {
+        setHistoryLoading(true);
+        window.axios.get(route('exchange-control.boxes.history', boxId))
+            .then(({ data }) => setHistoryItems(data.history ?? []))
+            .catch(() => setHistoryItems([]))
+            .finally(() => setHistoryLoading(false));
+    };
+
+    const toggleBoxHistory = (boxId) => {
+        if (historyBoxId === boxId) {
+            setHistoryBoxId(null);
+            return;
+        }
+        setHistoryBoxId(boxId);
+        setHistoryItems([]);
+        loadBoxHistory(boxId);
+    };
 
     const [createModalOpen, setCreateModalOpen] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
@@ -77,6 +102,7 @@ export default function ExchangeControl() {
     const openBoxesModal = (supplier) => {
         setSelectedSupplierId(supplier.id);
         setNewBoxNumber('');
+        setHistoryBoxId(null);
         setBoxesModalOpen(true);
     };
 
@@ -109,9 +135,13 @@ export default function ExchangeControl() {
         );
     };
 
-    const updateBoxObservation = (boxId, observation) => {
-        if (!isAdmin) return;
-        router.put(route('exchange-control.boxes.update', boxId), { observation }, { preserveScroll: true });
+    const updateBoxObservation = (boxId, observation, previous) => {
+        if (!canEditBoxObservation) return;
+        if ((observation || '') === (previous || '')) return;
+        router.put(route('exchange-control.boxes.update', boxId), { observation }, {
+            preserveScroll: true,
+            onSuccess: () => { if (historyBoxId === boxId) loadBoxHistory(boxId); },
+        });
     };
 
     // Substitua o submitBox existente por este:
@@ -122,7 +152,7 @@ export default function ExchangeControl() {
         if (!boxNumber) return;
 
         const payload = { number: boxNumber };
-        if (isAdmin) payload.observation = newBoxObservation;
+        if (canEditBoxObservation) payload.observation = newBoxObservation;
 
         router.post(
             route('exchange-control.boxes.store', selectedSupplier.id),
@@ -589,7 +619,7 @@ export default function ExchangeControl() {
                                 <form onSubmit={submitBox} className="mt-4 flex flex-col gap-2">
                                     <div className="flex flex-wrap items-center gap-2">
                                         <input type="text" value={newBoxNumber} onChange={(e) => setNewBoxNumber(e.target.value)} placeholder="Número da caixa" className="flex-1 rounded-lg border border-gray-300 p-2.5 focus:border-emerald-500" required />
-                                        {isAdmin && (
+                                        {canEditBoxObservation && (
                                             <input type="text" value={newBoxObservation} onChange={(e) => setNewBoxObservation(e.target.value)} placeholder="Observação (opcional)" className="flex-1 rounded-lg border border-gray-300 p-2.5 focus:border-emerald-500" />
                                         )}
                                         <button type="submit" className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700">Adicionar</button>
@@ -600,18 +630,43 @@ export default function ExchangeControl() {
                                         <div key={box.id} className="flex flex-col gap-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
                                             <div className="flex items-center justify-between">
                                                 <span className="font-semibold text-gray-800">Caixa {box.number}</span>
-                                                <button type="button" onClick={() => removeBox(box.id)} className="font-semibold text-rose-600 transition hover:text-rose-700">Remover</button>
+                                                <div className="flex items-center gap-3">
+                                                    <button type="button" onClick={() => toggleBoxHistory(box.id)} className="font-semibold text-indigo-600 transition hover:text-indigo-700">
+                                                        {historyBoxId === box.id ? 'Ocultar histórico' : 'Histórico'}
+                                                    </button>
+                                                    <button type="button" onClick={() => removeBox(box.id)} className="font-semibold text-rose-600 transition hover:text-rose-700">Remover</button>
+                                                </div>
                                             </div>
-                                            {isAdmin ? (
+                                            {canEditBoxObservation ? (
                                                 <input
                                                     type="text"
                                                     defaultValue={box.observation || ''}
                                                     placeholder="Adicionar observação..."
-                                                    onBlur={(e) => updateBoxObservation(box.id, e.target.value)}
+                                                    onBlur={(e) => updateBoxObservation(box.id, e.target.value, box.observation)}
                                                     className="w-full text-xs rounded border border-gray-300 p-1.5 mt-1 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                                                 />
                                             ) : (
                                                 box.observation && <span className="text-xs text-gray-600 italic">Obs: {box.observation}</span>
+                                            )}
+                                            {historyBoxId === box.id && (
+                                                <div className="mt-2 rounded border border-indigo-100 bg-white p-2 text-xs">
+                                                    <p className="mb-1 font-semibold text-gray-700">Histórico de observações</p>
+                                                    {historyLoading ? (
+                                                        <p className="text-gray-500">Carregando...</p>
+                                                    ) : historyItems.length === 0 ? (
+                                                        <p className="text-gray-500">Nenhuma alteração registrada.</p>
+                                                    ) : (
+                                                        <ul className="flex max-h-40 flex-col gap-2 overflow-y-auto">
+                                                            {historyItems.map((item) => (
+                                                                <li key={item.id} className="border-b border-gray-100 pb-1 last:border-0">
+                                                                    <p className="text-gray-500">{item.created_at} — <span className="font-medium text-gray-700">{item.user_name}</span></p>
+                                                                    <p className="text-gray-500 line-through">{item.old_observation || '(vazio)'}</p>
+                                                                    <p className="text-gray-800">{item.new_observation || '(vazio)'}</p>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
                                     )) : <p className="text-sm text-gray-500">Nenhuma caixa cadastrada.</p>}

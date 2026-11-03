@@ -19,4 +19,9 @@ class SupplierBox extends Model
     {
         return $this->belongsTo(Supplier::class);
     }
+
+    public function observationHistories()
+    {
+        return $this->hasMany(BoxObservationHistory::class);
+    }
 }

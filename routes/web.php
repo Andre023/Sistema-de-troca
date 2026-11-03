@@ -26,7 +26,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/controle-troca/fornecedores/{supplier}', [ExchangeControlController::class, 'destroySupplier'])->name('exchange-control.suppliers.destroy');
     Route::post('/controle-troca/fornecedores/{supplier}/caixas', [ExchangeControlController::class, 'storeBox'])->name('exchange-control.boxes.store');
     Route::put('/controle-troca/caixas/{supplierBox}', [ExchangeControlController::class, 'updateBox'])->name('exchange-control.boxes.update');
-    Route::delete('/controle-troca/caixas/{supplierBox}', [ExchangeControlController::class, 'destroyBox'])->name('exchange-control.boxes.destroy');
+    Route::get('/controle-troca/caixas/{supplierBox}/historico', [ExchangeControlController::class, 'boxObservationHistory'])->name('exchange-control.boxes.history');
+    Route::delete('/controle-troca/caixas/{supplierBox}',[ExchangeControlController::class, 'destroyBox'])->name('exchange-control.boxes.destroy');
     Route::put('/controle-troca/fornecedores/{supplier}/observacao', [ExchangeControlController::class, 'updateSupplierObservation'])->name('exchange-control.suppliers.updateObservation');
 
     Route::post('/exchange-control/upload-excel', [App\Http\Controllers\ExchangeControlController::class, 'uploadExcel'])->name('exchange-control.upload-excel');
