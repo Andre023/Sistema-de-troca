@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ExchangeControlController;
+use App\Http\Controllers\ActivityLogController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -28,9 +29,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/controle-troca/caixas/{supplierBox}', [ExchangeControlController::class, 'updateBox'])->name('exchange-control.boxes.update');
     Route::get('/controle-troca/caixas/{supplierBox}/historico', [ExchangeControlController::class, 'boxObservationHistory'])->name('exchange-control.boxes.history');
     Route::delete('/controle-troca/caixas/{supplierBox}',[ExchangeControlController::class, 'destroyBox'])->name('exchange-control.boxes.destroy');
+    Route::get('/controle-troca/fornecedores/{supplier}/historico', [ExchangeControlController::class, 'supplierObservationHistory'])->name('exchange-control.suppliers.history');
     Route::put('/controle-troca/fornecedores/{supplier}/observacao', [ExchangeControlController::class, 'updateSupplierObservation'])->name('exchange-control.suppliers.updateObservation');
 
     Route::post('/exchange-control/upload-excel', [App\Http\Controllers\ExchangeControlController::class, 'uploadExcel'])->name('exchange-control.upload-excel');
+
+    Route::get('/atividades', [ActivityLogController::class, 'index'])->name('activity-log.index');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

@@ -10,6 +10,17 @@ export default function ExchangeControl() {
     const isAdmin = auth?.user?.role === 'admin';
     // Encarregado tem as mesmas telas do funcionário, mas pode editar as observações das caixas
     const canEditBoxObservation = isAdmin || auth?.user?.role === 'encarregado';
+    const canEditSupplierObservation = isAdmin || auth?.user?.role === 'encarregado';
+
+    // Histórico das observações do fornecedor
+    const [supplierHistory, setSupplierHistory] = useState(null); // { supplier, items, loading }
+
+    const openSupplierHistory = (supplier) => {
+        setSupplierHistory({ supplier, items: [], loading: true });
+        window.axios.get(route('exchange-control.suppliers.history', supplier.id))
+            .then(({ data }) => setSupplierHistory({ supplier, items: data.history ?? [], loading: false }))
+            .catch(() => setSupplierHistory({ supplier, items: [], loading: false }));
+    };
     const [newBoxObservation, setNewBoxObservation] = useState('');
 
     // Histórico de alterações das observações das caixas
@@ -166,8 +177,9 @@ export default function ExchangeControl() {
         setDeleteModalOpen(true);
     };
 
-    const updateSupplierObservation = (supplierId, observation) => {
-        if (!isAdmin) return;
+    const updateSupplierObservation = (supplierId, observation, previous) => {
+        if (!canEditSupplierObservation) return;
+        if ((observation || '') === (previous || '')) return;
         router.put(route('exchange-control.suppliers.updateObservation', supplierId), { observation }, { preserveScroll: true });
     };
 
@@ -463,17 +475,22 @@ export default function ExchangeControl() {
                                                 </td>
                                                 {/* Adicionado stopPropagation aqui para não abrir/fechar a gaveta ao clicar no input */}
                                                 <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                                                    {isAdmin ? (
-                                                        <input
-                                                            type="text"
-                                                            defaultValue={supplier.observation || ''}
-                                                            placeholder="Adicionar observação..."
-                                                            onBlur={(e) => updateSupplierObservation(supplier.id, e.target.value)}
-                                                            className="w-full rounded border-gray-300 p-1.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                                                        />
-                                                    ) : (
-                                                        <span className="text-sm text-gray-600">{supplier.observation || '-'}</span>
-                                                    )}
+                                                    <div className="flex items-center gap-2">
+                                                        {canEditSupplierObservation ? (
+                                                            <input
+                                                                type="text"
+                                                                defaultValue={supplier.observation || ''}
+                                                                placeholder="Adicionar observação..."
+                                                                onBlur={(e) => updateSupplierObservation(supplier.id, e.target.value, supplier.observation)}
+                                                                className="w-full rounded border-gray-300 p-1.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                            />
+                                                        ) : (
+                                                            <span className="flex-1 text-sm text-gray-600">{supplier.observation || '-'}</span>
+                                                        )}
+                                                        <button type="button" onClick={() => openSupplierHistory(supplier)} className="shrink-0 rounded-lg border border-gray-200 bg-white p-1.5 text-gray-500 transition hover:bg-gray-50 hover:text-indigo-600" title="Histórico da observação" aria-label="Histórico da observação">
+                                                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l3 2" /></svg>
+                                                        </button>
+                                                    </div>
                                                 </td>
                                                 {!isAdmin && (
                                                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -538,6 +555,22 @@ export default function ExchangeControl() {
                                                 <button type="button" onClick={() => openBoxesModal(supplier)} className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-emerald-700 transition active:scale-95" title="Gerenciar caixas"><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14" /></svg></button>
                                                 <button type="button" onClick={() => openEditModal(supplier)} className="rounded-lg border border-blue-200 bg-blue-50 p-2 text-blue-700 transition active:scale-95" title="Editar fornecedor"><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" /></svg></button>
                                                 <button type="button" onClick={() => removeSupplier(supplier)} className="rounded-lg border border-rose-200 bg-rose-50 p-2 text-rose-700 transition active:scale-95" title="Excluir fornecedor"><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /></svg></button>
+                                            </div>
+                                            <div className="mb-3 flex items-center gap-2">
+                                                {canEditSupplierObservation ? (
+                                                    <input
+                                                        type="text"
+                                                        defaultValue={supplier.observation || ''}
+                                                        placeholder="Observação do fornecedor..."
+                                                        onBlur={(e) => updateSupplierObservation(supplier.id, e.target.value, supplier.observation)}
+                                                        className="min-w-0 flex-1 rounded border-gray-300 p-2 text-base focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                    />
+                                                ) : (
+                                                    <span className="min-w-0 flex-1 text-sm text-gray-600">Obs: {supplier.observation || '-'}</span>
+                                                )}
+                                                <button type="button" onClick={() => openSupplierHistory(supplier)} className="shrink-0 rounded-lg border border-gray-200 bg-white p-2 text-gray-500 transition active:scale-95" title="Histórico da observação" aria-label="Histórico da observação">
+                                                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l3 2" /></svg>
+                                                </button>
                                             </div>
                                             <Transition show={expandedSupplierId === supplier.id} enter="transition-all duration-300 ease-out" enterFrom="max-h-0 opacity-0" enterTo="max-h-40 opacity-100" leave="transition-all duration-200 ease-in" leaveFrom="max-h-40 opacity-100" leaveTo="max-h-0 opacity-0">
                                                 <div className="overflow-hidden">
@@ -672,6 +705,38 @@ export default function ExchangeControl() {
                                     )) : <p className="text-sm text-gray-500">Nenhuma caixa cadastrada.</p>}
                                 </div>
                                 <div className="mt-5 flex justify-end"><button type="button" onClick={() => { setBoxesModalOpen(false); setSelectedSupplierId(null); }} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Fechar</button></div>
+                            </Dialog.Panel>
+                        </Transition.Child>
+                    </div></div>
+                </Dialog>
+            </Transition>
+
+            {/* MODAL HISTÓRICO DA OBSERVAÇÃO DO FORNECEDOR */}
+            <Transition appear show={supplierHistory !== null} as={Fragment}>
+                <Dialog as="div" className="relative z-50" onClose={() => setSupplierHistory(null)}>
+                    <Transition.Child as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-150" leaveFrom="opacity-100" leaveTo="opacity-0"><div className="fixed inset-0 bg-black/30 backdrop-blur-sm" /></Transition.Child>
+                    <div className="fixed inset-0 overflow-y-auto"><div className="flex min-h-full items-center justify-center p-4">
+                        <Transition.Child as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-150" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
+                            <Dialog.Panel className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+                                <Dialog.Title className="text-lg font-bold text-gray-900">Histórico da observação {supplierHistory?.supplier ? `- ${supplierHistory.supplier.name}` : ''}</Dialog.Title>
+                                <div className="mt-4 max-h-80 overflow-y-auto rounded-lg border border-gray-200 p-3 text-sm">
+                                    {supplierHistory?.loading ? (
+                                        <p className="text-gray-500">Carregando...</p>
+                                    ) : !supplierHistory?.items?.length ? (
+                                        <p className="text-gray-500">Nenhuma alteração registrada.</p>
+                                    ) : (
+                                        <ul className="flex flex-col gap-3">
+                                            {supplierHistory.items.map((item) => (
+                                                <li key={item.id} className="border-b border-gray-100 pb-2 last:border-0 last:pb-0">
+                                                    <p className="text-xs text-gray-500">{item.created_at} — <span className="font-medium text-gray-700">{item.user_name}</span></p>
+                                                    <p className="break-words text-gray-500 line-through">{item.old_observation || '(vazio)'}</p>
+                                                    <p className="break-words text-gray-900">{item.new_observation || '(vazio)'}</p>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+                                <div className="mt-5 flex justify-end"><button type="button" onClick={() => setSupplierHistory(null)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Fechar</button></div>
                             </Dialog.Panel>
                         </Transition.Child>
                     </div></div>

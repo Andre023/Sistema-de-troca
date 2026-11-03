@@ -37,6 +37,12 @@ class User extends Authenticatable
         return in_array($this->role, ['admin', 'encarregado'], true);
     }
 
+    // Admin e encarregado podem editar as observações dos fornecedores
+    public function canEditSupplierObservation(): bool
+    {
+        return in_array($this->role, ['admin', 'encarregado'], true);
+    }
+
     /**
      * The attributes that should be hidden for serialization.
      *

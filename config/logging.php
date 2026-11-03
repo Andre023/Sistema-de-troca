@@ -52,6 +52,14 @@ return [
 
     'channels' => [
 
+        'atividades' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/atividades.log'),
+            'level' => 'info',
+            'days' => 365,
+            'replace_placeholders' => true,
+        ],
+
         'stack' => [
             'driver' => 'stack',
             'channels' => explode(',', (string) env('LOG_STACK', 'single')),

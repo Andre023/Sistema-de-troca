@@ -3,11 +3,22 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 
 class Product extends Model
 {
-    use HasFactory;
+    use HasFactory, LogsActivity;
+
+    public function activitySubjectType(): string
+    {
+        return 'Produto';
+    }
+
+    public function activityDescription(): string
+    {
+        return "Produto {$this->name}";
+    }
 
     protected $fillable = [
         'user_id',

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLog;
 use App\Models\Supplier;
 use App\Models\SupplierBox;
 use Illuminate\Http\Request;
@@ -287,12 +288,38 @@ public function index(Request $request)
         ]);
     }
     public function updateSupplierObservation(Request $request, Supplier $supplier) {
-        if ($request->user() && $request->user()->role === 'admin') {
-            $validated = $request->validate([
-                'observation' => 'nullable|string|max:1000',
-            ]);
-            $supplier->update($validated);
+        abort_unless($request->user()?->canEditSupplierObservation(), 403, 'Apenas encarregados e administradores podem editar a observação do fornecedor.');
+
+        $validated = $request->validate([
+            'observation' => 'nullable|string|max:1000',
+        ]);
+
+        // Só grava se mudou; a alteração fica registrada no log de atividades
+        if ((string) $supplier->observation !== (string) ($validated['observation'] ?? '')) {
+            $supplier->update(['observation' => $validated['observation'] ?? null]);
         }
+
         return redirect()->back();
+    }
+
+    public function supplierObservationHistory(Supplier $supplier)
+    {
+        $history = ActivityLog::query()
+            ->where('subject_type', 'Fornecedor')
+            ->where('subject_id', $supplier->id)
+            ->where('action', 'alterou')
+            ->latest('id')
+            ->get()
+            ->filter(fn ($log) => array_key_exists('observation', $log->new_values ?? []))
+            ->values()
+            ->map(fn ($log) => [
+                'id' => $log->id,
+                'user_name' => $log->user_name ?? 'Sistema',
+                'old_observation' => $log->old_values['observation'] ?? null,
+                'new_observation' => $log->new_values['observation'] ?? null,
+                'created_at' => $log->created_at?->timezone('America/Sao_Paulo')->format('d/m/Y H:i'),
+            ]);
+
+        return response()->json(['history' => $history]);
     }
 }

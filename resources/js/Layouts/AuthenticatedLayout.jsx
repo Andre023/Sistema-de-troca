@@ -36,6 +36,14 @@ export default function AuthenticatedLayout({ header, children }) {
                                 >
                                     Controle de Troca
                                 </NavLink>
+                                {user.role === 'admin' && (
+                                    <NavLink
+                                        href={route('activity-log.index')}
+                                        active={route().current('activity-log.*')}
+                                    >
+                                        Log de atividades
+                                    </NavLink>
+                                )}
                             </div>
                         </div>
 
@@ -146,6 +154,14 @@ export default function AuthenticatedLayout({ header, children }) {
                         >
                             Controle de Troca
                         </ResponsiveNavLink>
+                        {user.role === 'admin' && (
+                            <ResponsiveNavLink
+                                href={route('activity-log.index')}
+                                active={route().current('activity-log.*')}
+                            >
+                                Log de atividades
+                            </ResponsiveNavLink>
+                        )}
                     </div>
 
                     <div className="border-t border-gray-200 pb-1 pt-4">
